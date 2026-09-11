@@ -23,6 +23,8 @@ def init_db():
     conn.close()
 
 
+# ============ Read operations ============
+
 def is_seen(url):
     """Check whether a job URL has already been stored (i.e. previously checked)."""
     conn = sqlite3.connect(DB_PATH)
@@ -32,6 +34,40 @@ def is_seen(url):
     conn.close()
     return result is not None
 
+
+def get_all_jobs():
+    """Return all stored records, sorted by score descending."""
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM jobs ORDER BY score DESC")
+    results = cursor.fetchall()
+    conn.close()
+    return results
+
+
+def get_applied_jobs():
+    """Return only jobs marked as applied, most recently seen first."""
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM jobs WHERE applied = 1 ORDER BY first_seen_date DESC")
+    results = cursor.fetchall()
+    conn.close()
+    return results
+
+
+def get_stats():
+    """Basic counts for debugging/display."""
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("SELECT COUNT(*) FROM jobs")
+    total = cursor.fetchone()[0]
+    cursor.execute("SELECT COUNT(*) FROM jobs WHERE applied = 1")
+    applied = cursor.fetchone()[0]
+    conn.close()
+    return {"total_jobs_checked": total, "total_applied": applied}
+
+
+# ============ Write operations ============
 
 def save_job(job):
     """
@@ -53,7 +89,7 @@ def save_job(job):
 
 
 def mark_applied(url):
-    """Mark a job as applied to (call after manually confirming an application)."""
+    """Mark an existing job (by url) as applied to."""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute("UPDATE jobs SET applied = 1 WHERE url = ?", (url,))
@@ -61,27 +97,17 @@ def mark_applied(url):
     conn.close()
 
 
-def get_all_jobs():
-    """Return all stored records, sorted by score descending."""
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM jobs ORDER BY score DESC")
-    results = cursor.fetchall()
-    conn.close()
-    return results
+def save_and_mark_applied(job):
+    """
+    Save a job record (if not already present) and mark it applied in one call.
+    Used for manually-pasted JDs, which were never stored via save_job before
+    the user clicks "Mark as applied".
+    """
+    save_job(job)
+    mark_applied(job["url"])
 
 
-def get_stats():
-    """Basic counts for debugging/display."""
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute("SELECT COUNT(*) FROM jobs")
-    total = cursor.fetchone()[0]
-    cursor.execute("SELECT COUNT(*) FROM jobs WHERE applied = 1")
-    applied = cursor.fetchone()[0]
-    conn.close()
-    return {"total_jobs_checked": total, "total_applied": applied}
-
+# ============ Test entry point ============
 
 if __name__ == "__main__":
     init_db()
@@ -122,6 +148,15 @@ if __name__ == "__main__":
             print(f"UNEXPECTED: duplicate insert of {job['title']}")
 
     print(f"\nFinal stats: {get_stats()}")
+
+    # Test mark_applied / get_applied_jobs
+    print("\n=== Marking job1 as applied ===")
+    mark_applied(test_job_1["url"])
+    applied = get_applied_jobs()
+    print(f"Applied jobs count: {len(applied)}")
+    for row in applied:
+        print(row)
+
     print("\n=== All records in DB ===")
     for row in get_all_jobs():
         print(row)
