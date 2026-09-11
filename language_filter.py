@@ -2,18 +2,19 @@ from langdetect import detect, LangDetectException
 
 ACCEPTED_LANGUAGES = ["en", "fr"]
 
+
 def is_accepted_language(text):
     """
-    检测文本语言,只接受英语或法语。
-    注意: 这是基于JD文本本身语言的检测,是一个代理指标(proxy),
-    不完全等同于"实际工作语言要求"——比如某些岗位可能用英语写JD
-    但实际要求候选人会德语做客户对接。这个局限性需要知晓。
+    Detect the language of a JD and accept only English or French.
+    Note: this checks the language the JD is WRITTEN in, which is a proxy for,
+    not a guarantee of, the actual working language required (e.g. a posting
+    written in English could still require German for client-facing work).
     """
     try:
         lang = detect(text)
         return lang in ACCEPTED_LANGUAGES
     except LangDetectException:
-        return False  # 检测失败(比如文本太短)时,保守地排除
+        return False  # detection failed (e.g. text too short), exclude conservatively
 
 
 if __name__ == "__main__":
@@ -23,4 +24,5 @@ if __name__ == "__main__":
         "Wir suchen einen Praktikanten für Data Science..."
     ]
     for t in test_texts:
-        print(f"{t[:30]}... → {'✅接受' if is_accepted_language(t) else '❌排除'}")
+        result = "accepted" if is_accepted_language(t) else "rejected"
+        print(f"{t[:30]}... -> {result}")
